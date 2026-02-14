@@ -137,6 +137,8 @@ option(ZFP_WITH_DAZ "Treat subnormals as zero to avoid overflow" OFF)
 
 option(ZFP_WITH_CUDA "Enable CUDA parallel compression" OFF)
 
+option(ZFP_WITH_HIP "Enable HIP parallel compression" OFF)
+
 option(ZFP_WITH_BIT_STREAM_STRIDED "Enable strided access for progressive zfp streams" OFF)
 mark_as_advanced(ZFP_WITH_BIT_STREAM_STRIDED)
 
@@ -209,6 +211,13 @@ if(ZFP_WITH_CUDA)
   if(${CUDA_VERSION_MAJOR} LESS 7)
     message(FATAL_ERROR "zfp requires at least CUDA 7.0.")
   endif()
+endif()
+
+if(ZFP_WITH_HIP)
+  if(ZFP_WITH_CUDA)
+    message(FATAL_ERROR "Cannot enable both ZFP_WITH_CUDA and ZFP_WITH_HIP.")
+  endif()
+  find_package(hip REQUIRED)
 endif()
 
 if(NOT (ZFP_BIT_STREAM_WORD_SIZE EQUAL 64))

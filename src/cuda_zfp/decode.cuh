@@ -163,10 +163,10 @@ void decode_ints(BlockReader<size> &reader, uint maxbits, UInt *data)
       }
     }
     // step 3: deposit bit plane from x
-#if (CUDART_VERSION < 8000)
-    #pragma unroll
-#else
+#if defined(ZFP_WITH_HIP) || (defined(CUDART_VERSION) && CUDART_VERSION >= 8000)
     #pragma unroll size
+#else
+    #pragma unroll
 #endif
     for (uint i = 0; i < size; i++, x >>= 1)
       data[i] += (UInt)(x & 1u) << k;
@@ -264,10 +264,10 @@ __device__ void zfp_decode(BlockReader<BlockSize> &reader, Scalar *fblock, uint 
 
     Int iblock[BlockSize];
     const unsigned char *perm = get_perm<BlockSize>();
-#if (CUDART_VERSION < 8000)
-    #pragma unroll 
-#else
+#if defined(ZFP_WITH_HIP) || (defined(CUDART_VERSION) && CUDART_VERSION >= 8000)
     #pragma unroll BlockSize
+#else
+    #pragma unroll
 #endif
     for (int i = 0; i < BlockSize; ++i)
       iblock[perm[i]] = uint2int(ublock[i]);
@@ -277,10 +277,10 @@ __device__ void zfp_decode(BlockReader<BlockSize> &reader, Scalar *fblock, uint 
 
     Scalar inv_w = dequantize<Int, Scalar>(1, emax);
 
-#if (CUDART_VERSION < 8000)
-    #pragma unroll 
-#else
+#if defined(ZFP_WITH_HIP) || (defined(CUDART_VERSION) && CUDART_VERSION >= 8000)
     #pragma unroll BlockSize
+#else
+    #pragma unroll
 #endif
     for (int i = 0; i < BlockSize; ++i)
       fblock[i] = inv_w * (Scalar)iblock[i];

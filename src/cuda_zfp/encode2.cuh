@@ -139,13 +139,13 @@ size_t encode2launch(uint2 dims,
   //
   size_t stream_bytes = calc_device_mem2d(zfp_pad, maxbits);
   // ensure we have zeros
-  cudaMemset(stream, 0, stream_bytes);
+  gpuMemset(stream, 0, stream_bytes);
 
 #ifdef CUDA_ZFP_RATE_PRINT
-  cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-  cudaEventRecord(start);
+  gpuEvent_t start, stop;
+  gpuEventCreate(&start);
+  gpuEventCreate(&stop);
+  gpuEventRecord(start);
 #endif
 
   cudaEncode2<Scalar> <<<grid_size, block_size>>>
@@ -158,13 +158,13 @@ size_t encode2launch(uint2 dims,
      zfp_blocks);
 
 #ifdef CUDA_ZFP_RATE_PRINT
-  cudaDeviceSynchronize();
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  cudaStreamSynchronize(0);
+  gpuDeviceSynchronize();
+  gpuEventRecord(stop);
+  gpuEventSynchronize(stop);
+  gpuStreamSynchronize(0);
 
   float milliseconds = 0.f;
-  cudaEventElapsedTime(&milliseconds, start, stop);
+  gpuEventElapsedTime(&milliseconds, start, stop);
   float seconds = milliseconds / 1000.f;
   float mb = (float(dims.x * dims.y) * sizeof(Scalar)) / (1024.f * 1024.f *1024.f);
   float rate = mb / seconds;

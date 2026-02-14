@@ -1,5 +1,6 @@
 #ifndef ERRORCHECK_H
 #define ERRORCHECK_H
+#include "gpu_portability.h"
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -15,11 +16,11 @@ public:
 
   void chk(std::string msg)
   {
-    error = cudaGetLastError();
-    if (error != cudaSuccess)
+    error = gpuGetLastError();
+    if (error != gpuSuccess)
     {
       std::cout << msg << " : " << error;
-      std::cout << " " << cudaGetErrorString(error) << std::endl;
+      std::cout << " " << gpuGetErrorString(error) << std::endl;
     }
   }
 
@@ -28,7 +29,7 @@ public:
     chk(str.str());
     str.str("");
   }
-  cudaError error;
+  gpuError_t error;
   stringstream str;
 };
 

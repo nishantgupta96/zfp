@@ -5,6 +5,7 @@
 typedef unsigned long long Word;
 #define Wsize ((uint)(CHAR_BIT * sizeof(Word)))
 
+#include "gpu_portability.h"
 #include "type_info.cuh"
 #include "zfp.h"
 #include "constants.h"
@@ -84,7 +85,7 @@ size_t calc_device_mem3d(const uint3 encoded_dims,
 
 dim3 get_max_grid_dims()
 {
-  static cudaDeviceProp prop;
+  static gpuDeviceProp prop;
   static bool firstTime = true;
 
   if( firstTime )
@@ -92,7 +93,7 @@ dim3 get_max_grid_dims()
     firstTime = false;
 
     int device = 0;
-    cudaGetDeviceProperties(&prop, device);
+    gpuGetDeviceProperties(&prop, device);
   }
 
   dim3 grid_dims;

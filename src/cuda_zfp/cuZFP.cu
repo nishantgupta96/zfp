@@ -207,7 +207,7 @@ Word *setup_device_stream_compress(zfp_stream *stream,const zfp_field *field)
 
   Word *d_stream = NULL;
   size_t max_size = zfp_stream_maximum_size(stream, field);
-  cudaMalloc(&d_stream, max_size);
+  gpuMalloc(&d_stream, max_size);
   return d_stream;
 }
 
@@ -224,8 +224,8 @@ Word *setup_device_stream_decompress(zfp_stream *stream,const zfp_field *field)
   Word *d_stream = NULL;
   //TODO: change maximum_size to compressed stream size
   size_t size = zfp_stream_maximum_size(stream, field);
-  cudaMalloc(&d_stream, size);
-  cudaMemcpy(d_stream, stream->stream->begin, size, cudaMemcpyHostToDevice);
+  gpuMalloc(&d_stream, size);
+  gpuMemcpy(d_stream, stream->stream->begin, size, gpuMemcpyHostToDevice);
   return d_stream;
 }
 
@@ -289,9 +289,9 @@ void *setup_device_field_compress(const zfp_field *field, const int3 &stride, lo
   if(contig)
   {
     size_t field_bytes = type_size * field_size;
-    cudaMalloc(&d_data, field_bytes);
+    gpuMalloc(&d_data, field_bytes);
 
-    cudaMemcpy(d_data, host_ptr, field_bytes, cudaMemcpyHostToDevice);
+    gpuMemcpy(d_data, host_ptr, field_bytes, gpuMemcpyHostToDevice);
   }
   return offset_void(field->type, d_data, -offset);
 }
@@ -328,7 +328,7 @@ void *setup_device_field_decompress(const zfp_field *field, const int3 &stride, 
   if(contig)
   {
     size_t field_bytes = type_size * field_size;
-    cudaMalloc(&d_data, field_bytes);
+    gpuMalloc(&d_data, field_bytes);
   }
   return offset_void(field->type, d_data, -offset);
 }
@@ -346,10 +346,10 @@ void cleanup_device_ptr(void *orig_ptr, void *d_ptr, size_t bytes, long long int
 
   if(bytes > 0)
   {
-    cudaMemcpy(h_offset_ptr, d_offset_ptr, bytes, cudaMemcpyDeviceToHost);
+    gpuMemcpy(h_offset_ptr, d_offset_ptr, bytes, gpuMemcpyDeviceToHost);
   }
 
-  cudaFree(d_offset_ptr);
+  gpuFree(d_offset_ptr);
 }
 
 } // namespace internal
@@ -488,4 +488,17 @@ cuda_decompress(zfp_stream *stream, zfp_field *field)
   stream->stream->bits = wsize;
   // set stream pointer to end of stream
   stream->stream->ptr = stream->stream->begin + words_read;
+}
+
+/* HIP entry points: same implementation as CUDA */
+size_t
+hip_compress(zfp_stream *stream, const zfp_field *field)
+{
+  return cuda_compress(stream, field);
+}
+
+void
+hip_decompress(zfp_stream *stream, zfp_field *field)
+{
+  cuda_decompress(stream, field);
 }

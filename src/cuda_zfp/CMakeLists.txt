@@ -20,5 +20,6 @@ set(cuZFP_sources
 set(cuZFP_headers
     shared.h
     cuZFP.h
-    ErrorCheck.h)
+    ErrorCheck.h
+    gpu_portability.h)
 

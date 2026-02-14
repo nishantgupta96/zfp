@@ -143,11 +143,11 @@ size_t decode3launch(uint3 dims,
 
 #ifdef CUDA_ZFP_RATE_PRINT
   // setup some timing code
-  cudaEvent_t start, stop;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
+  gpuEvent_t start, stop;
+  gpuEventCreate(&start);
+  gpuEventCreate(&stop);
 
-  cudaEventRecord(start);
+  gpuEventRecord(start);
 #endif
 
   cudaDecode3<Scalar, 64> << < grid_size, block_size >> >
@@ -159,12 +159,12 @@ size_t decode3launch(uint3 dims,
      maxbits);
 
 #ifdef CUDA_ZFP_RATE_PRINT
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-	cudaStreamSynchronize(0);
+  gpuEventRecord(stop);
+  gpuEventSynchronize(stop);
+	gpuStreamSynchronize(0);
 
   float milliseconds = 0;
-  cudaEventElapsedTime(&milliseconds, start, stop);
+  gpuEventElapsedTime(&milliseconds, start, stop);
   float seconds = milliseconds / 1000.f;
   float rate = (float(dims.x * dims.y * dims.z) * sizeof(Scalar) ) / seconds;
   rate /= 1024.f;

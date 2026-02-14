@@ -9,6 +9,13 @@ if(ZFP_WITH_CUDA)
   add_definitions(-DZFP_WITH_CUDA)
 endif()
 
+if(ZFP_WITH_HIP)
+  add_subdirectory(cuda_zfp)
+  set(zfp_hip_source cuda_zfp/cuZFP.cu)
+  set_source_files_properties(${zfp_hip_source} PROPERTIES LANGUAGE HIP)
+  add_definitions(-DZFP_WITH_HIP)
+endif()
+
 
 set(zfp_source
   zfp.c
@@ -24,7 +31,8 @@ set(zfp_source
   decode4f.c decode4d.c decode4i.c decode4l.c)
 
 add_library(zfp ${zfp_source}
-                ${zfp_cuda_backend_obj})
+                ${zfp_cuda_backend_obj}
+                ${zfp_hip_source})
 add_library(zfp::zfp ALIAS zfp)
 
 if(ZFP_WITH_OPENMP)
@@ -43,6 +51,11 @@ endif()
 
 if(ZFP_WITH_CUDA)
   target_link_libraries(zfp PRIVATE ${CUDA_CUDART_LIBRARY} stdc++)
+endif()
+
+if(ZFP_WITH_HIP)
+  target_include_directories(zfp PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  target_link_libraries(zfp PRIVATE hip::device)
 endif()
 
 target_compile_definitions(zfp
