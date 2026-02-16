@@ -98,7 +98,7 @@ bool is_contigous(const uint dims[3], const int3 &stride, long long int &offset)
 // encode expects device pointers
 //
 template<typename T>
-size_t encode(uint dims[3], int3 stride, int bits_per_block, T *d_data, Word *d_stream)
+size_t encode(uint dims[3], int3 stride, int bits_per_block, T *d_data, Word *d_stream, cudaStream_t s)
 {
 
   int d = 0;
@@ -118,24 +118,24 @@ size_t encode(uint dims[3], int3 stride, int bits_per_block, T *d_data, Word *d_
   {
     int dim = dims[0];
     int sx = stride.x;
-    stream_size = cuZFP::encode1<T>(dim, sx, d_data, d_stream, bits_per_block); 
+    stream_size = cuZFP::encode1<T>(dim, sx, d_data, d_stream, bits_per_block, s); 
   }
   else if(d == 2)
   {
     uint2 ndims = make_uint2(dims[0], dims[1]);
-    int2 s;
-    s.x = stride.x; 
-    s.y = stride.y; 
-    stream_size = cuZFP::encode2<T>(ndims, s, d_data, d_stream, bits_per_block); 
+    int2 s2;
+    s2.x = stride.x; 
+    s2.y = stride.y; 
+    stream_size = cuZFP::encode2<T>(ndims, s2, d_data, d_stream, bits_per_block, s); 
   }
   else if(d == 3)
   {
-    int3 s;
-    s.x = stride.x; 
-    s.y = stride.y; 
-    s.z = stride.z; 
+    int3 s3;
+    s3.x = stride.x; 
+    s3.y = stride.y; 
+    s3.z = stride.z; 
     uint3 ndims = make_uint3(dims[0], dims[1], dims[2]);
-    stream_size = cuZFP::encode<T>(ndims, s, d_data, d_stream, bits_per_block); 
+    stream_size = cuZFP::encode<T>(ndims, s3, d_data, d_stream, bits_per_block, s); 
   }
 
   errors.chk("Encode");
@@ -144,7 +144,7 @@ size_t encode(uint dims[3], int3 stride, int bits_per_block, T *d_data, Word *d_
 }
 
 template<typename T>
-size_t decode(uint ndims[3], int3 stride, int bits_per_block, Word *stream, T *out)
+size_t decode(uint ndims[3], int3 stride, int bits_per_block, Word *stream, T *out, cudaStream_t s)
 {
 
   int d = 0;
@@ -163,19 +163,19 @@ size_t decode(uint ndims[3], int3 stride, int bits_per_block, Word *stream, T *o
   {
     uint3 dims = make_uint3(ndims[0], ndims[1], ndims[2]);
 
-    int3 s;
-    s.x = stride.x; 
-    s.y = stride.y; 
-    s.z = stride.z; 
+    int3 s3;
+    s3.x = stride.x; 
+    s3.y = stride.y; 
+    s3.z = stride.z; 
 
-    stream_bytes = cuZFP::decode3<T>(dims, s, stream, out, bits_per_block); 
+    stream_bytes = cuZFP::decode3<T>(dims, s3, stream, out, bits_per_block, s); 
   }
   else if(d == 1)
   {
     uint dim = ndims[0];
     int sx = stride.x;
 
-    stream_bytes = cuZFP::decode1<T>(dim, sx, stream, out, bits_per_block); 
+    stream_bytes = cuZFP::decode1<T>(dim, sx, stream, out, bits_per_block, s); 
 
   }
   else if(d == 2)
@@ -184,11 +184,11 @@ size_t decode(uint ndims[3], int3 stride, int bits_per_block, Word *stream, T *o
     dims.x = ndims[0];
     dims.y = ndims[1];
 
-    int2 s;
-    s.x = stride.x; 
-    s.y = stride.y; 
+    int2 s2;
+    s2.x = stride.x; 
+    s2.y = stride.y; 
 
-    stream_bytes = cuZFP::decode2<T>(dims, s, stream, out, bits_per_block); 
+    stream_bytes = cuZFP::decode2<T>(dims, s2, stream, out, bits_per_block, s); 
   }
   else std::cerr<<" d ==  "<<d<<" not implemented\n";
  
@@ -211,7 +211,7 @@ Word *setup_device_stream_compress(zfp_stream *stream,const zfp_field *field)
   return d_stream;
 }
 
-Word *setup_device_stream_decompress(zfp_stream *stream,const zfp_field *field)
+Word *setup_device_stream_decompress(zfp_stream *stream,const zfp_field *field, cudaStream_t s)
 {
   bool stream_device = cuZFP::is_gpu_ptr(stream->stream->begin);
   assert(sizeof(bitstream_word) == sizeof(Word)); // "CUDA version currently only supports 64bit words");
@@ -225,7 +225,7 @@ Word *setup_device_stream_decompress(zfp_stream *stream,const zfp_field *field)
   //TODO: change maximum_size to compressed stream size
   size_t size = zfp_stream_maximum_size(stream, field);
   cudaMalloc(&d_stream, size);
-  cudaMemcpy(d_stream, stream->stream->begin, size, cudaMemcpyHostToDevice);
+  cudaMemcpyAsync(d_stream, stream->stream->begin, size, cudaMemcpyHostToDevice, s);
   return d_stream;
 }
 
@@ -255,7 +255,7 @@ void * offset_void(zfp_type type, void *ptr, long long int offset)
   return offset_ptr;
 }
 
-void *setup_device_field_compress(const zfp_field *field, const int3 &stride, long long int &offset)
+void *setup_device_field_compress(const zfp_field *field, const int3 &stride, long long int &offset, cudaStream_t s)
 {
   bool field_device = cuZFP::is_gpu_ptr(field->data);
 
@@ -291,7 +291,7 @@ void *setup_device_field_compress(const zfp_field *field, const int3 &stride, lo
     size_t field_bytes = type_size * field_size;
     cudaMalloc(&d_data, field_bytes);
 
-    cudaMemcpy(d_data, host_ptr, field_bytes, cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(d_data, host_ptr, field_bytes, cudaMemcpyHostToDevice, s);
   }
   return offset_void(field->type, d_data, -offset);
 }
@@ -333,7 +333,7 @@ void *setup_device_field_decompress(const zfp_field *field, const int3 &stride, 
   return offset_void(field->type, d_data, -offset);
 }
 
-void cleanup_device_ptr(void *orig_ptr, void *d_ptr, size_t bytes, long long int offset, zfp_type type)
+void cleanup_device_ptr(void *orig_ptr, void *d_ptr, size_t bytes, long long int offset, zfp_type type, cudaStream_t s)
 {
   bool device = cuZFP::is_gpu_ptr(orig_ptr);
   if(device)
@@ -346,7 +346,8 @@ void cleanup_device_ptr(void *orig_ptr, void *d_ptr, size_t bytes, long long int
 
   if(bytes > 0)
   {
-    cudaMemcpy(h_offset_ptr, d_offset_ptr, bytes, cudaMemcpyDeviceToHost);
+    cudaMemcpyAsync(h_offset_ptr, d_offset_ptr, bytes, cudaMemcpyDeviceToHost, s);
+    cudaStreamSynchronize(s);
   }
 
   cudaFree(d_offset_ptr);
@@ -354,9 +355,19 @@ void cleanup_device_ptr(void *orig_ptr, void *d_ptr, size_t bytes, long long int
 
 } // namespace internal
 
+static cudaStream_t
+get_cuda_stream(const zfp_stream *stream)
+{
+  if (stream->exec.policy == zfp_exec_cuda && stream->exec.params != NULL)
+    return (cudaStream_t)((zfp_exec_params_cuda*)stream->exec.params)->stream;
+  return 0;
+}
+
 size_t
 cuda_compress(zfp_stream *stream, const zfp_field *field)
 {
+  cudaStream_t s = get_cuda_stream(stream);
+
   uint dims[3];
   dims[0] = field->nx;
   dims[1] = field->ny;
@@ -369,7 +380,7 @@ cuda_compress(zfp_stream *stream, const zfp_field *field)
   
   size_t stream_bytes = 0;
   long long int offset = 0; 
-  void *d_data = internal::setup_device_field_compress(field, stride, offset);
+  void *d_data = internal::setup_device_field_compress(field, stride, offset, s);
 
   if(d_data == NULL)
   {
@@ -382,26 +393,26 @@ cuda_compress(zfp_stream *stream, const zfp_field *field)
   if(field->type == zfp_type_float)
   {
     float* data = (float*) d_data;
-    stream_bytes = internal::encode<float>(dims, stride, (int)stream->maxbits, data, d_stream);
+    stream_bytes = internal::encode<float>(dims, stride, (int)stream->maxbits, data, d_stream, s);
   }
   else if(field->type == zfp_type_double)
   {
     double* data = (double*) d_data;
-    stream_bytes = internal::encode<double>(dims, stride, (int)stream->maxbits, data, d_stream);
+    stream_bytes = internal::encode<double>(dims, stride, (int)stream->maxbits, data, d_stream, s);
   }
   else if(field->type == zfp_type_int32)
   {
     int * data = (int*) d_data;
-    stream_bytes = internal::encode<int>(dims, stride, (int)stream->maxbits, data, d_stream);
+    stream_bytes = internal::encode<int>(dims, stride, (int)stream->maxbits, data, d_stream, s);
   }
   else if(field->type == zfp_type_int64)
   {
     long long int * data = (long long int*) d_data;
-    stream_bytes = internal::encode<long long int>(dims, stride, (int)stream->maxbits, data, d_stream);
+    stream_bytes = internal::encode<long long int>(dims, stride, (int)stream->maxbits, data, d_stream, s);
   }
 
-  internal::cleanup_device_ptr(stream->stream->begin, d_stream, stream_bytes, 0, field->type);
-  internal::cleanup_device_ptr(field->data, d_data, 0, offset, field->type);
+  internal::cleanup_device_ptr(stream->stream->begin, d_stream, stream_bytes, 0, field->type, s);
+  internal::cleanup_device_ptr(field->data, d_data, 0, offset, field->type, s);
 
   // zfp wants to flush the stream.
   // set bits to wsize because we already did that.
@@ -416,6 +427,8 @@ cuda_compress(zfp_stream *stream, const zfp_field *field)
 void 
 cuda_decompress(zfp_stream *stream, zfp_field *field)
 {
+  cudaStream_t s = get_cuda_stream(stream);
+
   uint dims[3];
   dims[0] = field->nx;
   dims[1] = field->ny;
@@ -436,30 +449,30 @@ cuda_decompress(zfp_stream *stream, zfp_field *field)
     return;
   }
 
-  Word *d_stream = internal::setup_device_stream_decompress(stream, field);
+  Word *d_stream = internal::setup_device_stream_decompress(stream, field, s);
 
   if(field->type == zfp_type_float)
   {
     float *data = (float*) d_data;
-    decoded_bytes = internal::decode(dims, stride, (int)stream->maxbits, d_stream, data);
+    decoded_bytes = internal::decode(dims, stride, (int)stream->maxbits, d_stream, data, s);
     d_data = (void*) data;
   }
   else if(field->type == zfp_type_double)
   {
     double *data = (double*) d_data;
-    decoded_bytes = internal::decode(dims, stride, (int)stream->maxbits, d_stream, data);
+    decoded_bytes = internal::decode(dims, stride, (int)stream->maxbits, d_stream, data, s);
     d_data = (void*) data;
   }
   else if(field->type == zfp_type_int32)
   {
     int *data = (int*) d_data;
-    decoded_bytes = internal::decode(dims, stride, (int)stream->maxbits, d_stream, data);
+    decoded_bytes = internal::decode(dims, stride, (int)stream->maxbits, d_stream, data, s);
     d_data = (void*) data;
   }
   else if(field->type == zfp_type_int64)
   {
     long long int *data = (long long int*) d_data;
-    decoded_bytes = internal::decode(dims, stride, (int)stream->maxbits, d_stream, data);
+    decoded_bytes = internal::decode(dims, stride, (int)stream->maxbits, d_stream, data, s);
     d_data = (void*) data;
   }
   else
@@ -480,8 +493,8 @@ cuda_decompress(zfp_stream *stream, zfp_field *field)
   }
   
   size_t bytes = type_size * field_size;
-  internal::cleanup_device_ptr(stream->stream->begin, d_stream, 0, 0, field->type);
-  internal::cleanup_device_ptr(field->data, d_data, bytes, offset, field->type);
+  internal::cleanup_device_ptr(stream->stream->begin, d_stream, 0, 0, field->type, s);
+  internal::cleanup_device_ptr(field->data, d_data, bytes, offset, field->type, s);
   
   // this is how zfp determines if this was a success
   size_t words_read = decoded_bytes / sizeof(Word);

@@ -77,6 +77,11 @@ typedef struct {
   uint chunk_size; /* number of blocks per chunk (1D only) */
 } zfp_exec_params_omp;
 
+/* CUDA execution parameters */
+typedef struct {
+  void* stream;    /* cudaStream_t (0 for default stream) */
+} zfp_exec_params_cuda;
+
 typedef struct {
   zfp_exec_policy policy; /* execution policy (serial, omp, ...) */
   void* params;           /* execution parameters */
@@ -322,6 +327,19 @@ zfp_bool              /* true upon success */
 zfp_stream_set_omp_threads(
   zfp_stream* stream, /* compressed stream */
   uint threads        /* number of OpenMP threads to use (0 for default) */
+);
+
+/* get CUDA stream associated with compressed stream */
+void*                      /* CUDA stream (0 for default stream) */
+zfp_stream_cuda_stream(
+  const zfp_stream* stream /* compressed stream */
+);
+
+/* set CUDA execution policy and stream */
+zfp_bool              /* true upon success */
+zfp_stream_set_cuda_stream(
+  zfp_stream* stream, /* compressed stream */
+  void* cuda_stream   /* cudaStream_t to use (0 for default stream) */
 );
 
 /* set OpenMP execution policy and number of blocks per chunk (1D only) */
